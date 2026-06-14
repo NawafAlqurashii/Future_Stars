@@ -171,8 +171,6 @@ docker run -p 8080:8080 future-stars
 ## 🧰 Tech stack
 Python · pandas · NumPy · scikit-learn · XGBoost · FastAPI · Docker · Google Cloud Run
 
-## 📄 License
-MIT — see [LICENSE](LICENSE).
 
 ## 👤 Author
 **Nawaf Alqurashi** — Data Analyst
