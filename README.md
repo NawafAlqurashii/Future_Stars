@@ -174,6 +174,6 @@ Python · pandas · NumPy · scikit-learn · XGBoost · FastAPI · Docker · Goo
 
 ## 👤 Author
 **Nawaf Alqurashi** — Data Analyst
-Portfolio: ⟨link⟩ · LinkedIn: ⟨link⟩ · GitHub: [@NawafAlqurashii](https://github.com/NawafAlqurashii)
+[Portfolio]⟨[link](https://nawafalqurashii.github.io/)⟩ · [LinkedIn](https://www.linkedin.com/in/nawafqurashi) · [GitHub](https://github.com/NawafAlqurashii)
 
 > Built during the Saudi Digital Academy × Le Wagon Data Science & AI Bootcamp, Riyadh.
