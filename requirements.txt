@@ -1,9 +1,12 @@
-pandas
-numpy
-scikit-learn
-xgboost
-pycountry
-fastapi
-uvicorn
-python-dotenv
-python-multipart
+# Runtime dependencies (training + serving the API).
+# Versions pinned for reproducibility. After you confirm everything runs
+# in your environment, regenerate exact pins with:  pip freeze > requirements.txt
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.4.2
+xgboost==2.0.3
+pycountry==23.12.11
+fastapi==0.111.0
+uvicorn==0.30.1
+python-dotenv==1.0.1
+python-multipart==0.0.9

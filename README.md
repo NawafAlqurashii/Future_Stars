@@ -1,64 +1,181 @@
-# Future Star — Football Talent Prediction
+# ⚽ Future Star — Football Talent Prediction
 
-**Future Star** is a data-driven machine learning project that predicts whether a young football player has the potential to become a *Future Star*.  
-Developed as part of the **Saudi Digital Academy Bootcamp in partnership with Le Wagon.** in Riyadh, it focuses on supporting **Saudi football academies** and aligns with the country’s **Vision 2030** goals for sports innovation.
+> Predict whether a **young footballer** will become a **top performer in their
+> position next season** — to help Saudi academies scout objectively, aligned
+> with **Vision 2030**.
+
+![Python](https://img.shields.io/badge/Python-3.10-blue)
+![XGBoost](https://img.shields.io/badge/Model-XGBoost-green)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688)
+![Docker](https://img.shields.io/badge/Container-Docker-2496ED)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+🔗 **Live demo:** ⟨paste your Cloud Run / Streamlit URL here⟩
+🖼️ **Screenshots:** see `outputs/` (confusion matrix, feature importance, threshold curve)
+
+> **TL;DR** — An early *same-season* version scored a suspicious **ROC-AUC ≈ 0.99**.
+> That was **target leakage**. After diagnosing and fixing it, the honest
+> **temporal** model predicts next-season breakout with **ROC-AUC ≈ 0.75** — and
+> its top picks are genuine young stars (Saka, Wirtz, Palmer, Musiala).
+
+---
+
+## 📌 Table of Contents
+- [Problem](#-problem)
+- [Approach](#-approach)
+- [Data](#-data)
+- [Methodology](#-methodology)
+- [The leakage story](#-the-leakage-story)
+- [Results](#-results)
+- [Project structure](#-project-structure)
+- [How to run](#-how-to-run)
+- [Limitations](#-limitations)
+- [Future work](#-future-work)
+- [Tech stack](#-tech-stack) · [License](#-license) · [Author](#-author)
 
 ---
 
-## 🌍 Project Overview
+## 🎯 Problem
+Scouting relies on subjective judgment and limited match exposure, so promising
+youth players get missed and evaluations carry bias. The goal is an objective,
+repeatable way to flag young players likely to break out — **fairly within their
+position** (a defender shouldn't be judged by a striker's goals).
 
-Scouting talented players often relies on subjective judgment and limited exposure.  
-**Future Star** introduces an objective way to assess youth players by analyzing detailed match statistics — from goals and assists to defensive and progressive actions — to generate a *Future Star probability score*.
+## 💡 Approach
+1. Data cleaning & preprocessing
+2. Exploratory Data Analysis (EDA)
+3. Feature engineering & a leakage-free target
+4. Model training & honest evaluation
+5. Deployment (API & Streamlit)
 
-The project’s goal is to help clubs and academies spot hidden talent early and make data-driven decisions.
+## 📊 Data
+Per-90 player statistics from the **top-5 European leagues** (FBref):
 
----
+| Season | Role | Notes |
+|--------|------|-------|
+| **2024-25** | model **features** | full: attacking, defensive, GK, xG (~2,850 players, 165 cols) |
+| **2025-26** | **label** (next season) | partial export (used to define the outcome) |
 
-## ⚙️ Core Concept
-
-- Focused on **Saudi youth players** with potential to expand globally  
-- Uses **advanced performance metrics** such as:
-  - Goals & Assists per 90 minutes  
-  - Expected Goals (xG) & Expected Assists (xA)  
-  - Defensive actions, blocks, clearances  
-  - Progressive passes and passing accuracy  
-- Compares players fairly within their position (GK, DF, MF, FW)  
-- Produces an interpretable probability score showing how close a player is to becoming a *Future Star*
-
----
+- **Target:** binary "Future Star" label **+ a probability score (%)**.
+- **Cohort:** young players (Age ≤ 23) with ≥ 5 full matches → **630 players**,
+  of whom **~15%** become a top-20% performer in their position next season.
 
 ## 🧠 Methodology
+- **Per-90 features** so playing time doesn't bias comparisons.
+- **Position-fair label:** within each role, a position-specific score (goal
+  contributions for FW/MF, defensive actions for DF, save% for GK); the **top 20%**
+  of each position are "future stars".
+- **Temporal (leakage-free) design:** features come from **2024-25**, the label is
+  computed on **2025-26**. Because the label is from a *different season*, strong
+  metrics like `GA_per90` / `Def_Actions_per90` are **legitimate predictors, not
+  leakage**.
+- **Data-quality fixes:** structural goalkeeper-NaN handling, a position-mapping
+  fix (~349 forwards were mislabeled), a minimum-minutes filter (≈30% of players
+  removed), and an age constraint.
+- **Pipeline:** `SimpleImputer` + `OneHotEncoder` inside a `ColumnTransformer`
+  (fit on training folds only), XGBoost with `scale_pos_weight`, evaluated with
+  **5-fold cross-validation**.
 
-1. **Data Cleaning & Preparation** – transforming raw match data into comparable per-90 features  
-2. **Feature Engineering** – deriving advanced metrics that better represent player performance  
-3. **Modeling** – training and optimizing an XGBoost classifier with SMOTE and OneHot Encoding  
-4. **Evaluation** – assessing model accuracy & interpretability  
-5. **Deployment** – FastAPI service containerized with Docker and hosted on **Google Cloud Run**
+## 🔍 The leakage story
+The first model labeled the top 20% **this season** and trained on **this
+season's** stats — scoring **ROC-AUC ≈ 0.99**. That's a red flag: the label was
+computed from the same metrics fed to the model, so it was just re-deriving the
+labeling rule.
 
----
+**Proof:** removing the label-defining features (and keeping only independent
+style-of-play features) collapses the score. That gap *is* the leakage.
 
-## 🧰 Tools & Technologies Used
+| Model | Label | ROC-AUC | Verdict |
+|-------|-------|---------|---------|
+| Same-season (leaky) | same season | **≈ 0.99** | ❌ leakage — meaningless |
+| Same-season, style only | same season | ≈ 0.85 | proves the leakage |
+| **Temporal (final)** | **next season** | **≈ 0.75** | ✅ **honest prediction** |
 
-<p align="left">
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" width="45" title="Python"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/pandas/pandas-original.svg" width="45" title="Pandas"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/numpy/numpy-original.svg" width="45" title="NumPy"/>
-  <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/Scikit_learn_logo_small.svg" height="40" alt="Scikit-Learn"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/jupyter/jupyter-original.svg" width="45" title="Jupyter Notebook"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg" width="45" title="FastAPI"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg" width="45" title="Docker"/>
-  <<img src="https://raw.githubusercontent.com/devicons/devicon/master/icons/googlecloud/googlecloud-original.svg" height="40" alt="Google Cloud"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg" width="45" title="VS Code"/>
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" width="45" title="Git"/>
-</p>
+The fix wasn't to drop the strong metrics (they're what make a player good) — it
+was to change **what the label means** so they become valid predictors again.
 
----
+## 📈 Results
+Final temporal model, 5-fold cross-validation (out-of-fold):
 
-## 🎯 Real-World Impact
+| Metric | Score |
+|--------|-------|
+| ROC-AUC | **≈ 0.75** |
+| PR-AUC | ≈ 0.36 |
+| F1 (@ 0.5) | ≈ 0.44 |
 
-Future Star enhances scouting efficiency in Saudi academies by:
-- Reducing human bias in early talent evaluation  
-- Creating transparent, data-based player assessments  
-- Supporting long-term youth-development strategies aligned with Vision 2030  
+**Operating point (scouting shortlist):** the decision threshold is tuned for
+**recall ≈ 0.70** (catch most prospects; humans review the list). The resulting
+**precision ≈ 0.30** is about **2× the 15% base rate** — a genuinely useful
+shortlist.
 
+**Face validity** — top-scored young prospects (out-of-fold) include
+*Bukayo Saka, Florian Wirtz, Cole Palmer, Arda Güler, Xavi Simons, Jamal
+Musiala* — real, highly-rated young talents.
 
+> Predicting the *future* in football is hard (injuries, transfers, development
+> variance). A transparent ROC-AUC ≈ 0.75 is an honest, useful result — worth far
+> more than an inflated 0.99 that secretly knows the answer.
+
+## 📁 Project structure
+```
+Future_Stars/
+├── api/              # FastAPI app (serving)
+├── data/             # season CSVs (git-ignored)
+├── future_stars/     # core package: preprocessing, model, training, predict, evaluation
+├── model/            # saved model.pkl (temporal)
+├── notebooks/        # future_stars_final.ipynb (the main case study) + experiments
+├── outputs/          # metrics.json, figures, predictions
+├── tests/            # unit tests
+├── Dockerfile
+├── main.py           # entry point -> future_stars.training.main
+├── requirements.txt
+└── requirements-dev.txt
+```
+
+## ▶️ How to run
+
+### Local
+```bash
+git clone https://github.com/NawafAlqurashii/Future_Stars.git
+cd Future_Stars
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements-dev.txt
+
+# Train the temporal model (features = 2024-25, label = 2025-26)
+python main.py --features-data data/players_data_light-2024_2025.csv \
+               --label-data    data/players_data_light-2025_2026.csv
+
+# Serve the API
+uvicorn api.api:app --reload --port 8080
+```
+
+### Docker
+```bash
+docker build -t future-stars .
+docker run -p 8080:8080 future-stars
+```
+
+## ⚠️ Limitations
+- **2025-26 is a partial export** (no xG / defensive detail), so the next-season
+  label is approximate.
+- **Survivorship:** players absent in 2025-26 are treated as "did not break out"
+  (some may be injuries or moves to uncovered leagues).
+- **A single season-to-season step;** more seasons would strengthen it.
+- **Stats only** — ignores physical, tactical, psychological and injury context.
+
+## 🚀 Future work
+- More full seasons + growth-trajectory features.
+- Probability calibration so the score % is well-calibrated.
+- A Streamlit scout-facing app on top of the API.
+
+## 🧰 Tech stack
+Python · pandas · NumPy · scikit-learn · XGBoost · FastAPI · Docker · Google Cloud Run
+
+## 📄 License
+MIT — see [LICENSE](LICENSE).
+
+## 👤 Author
+**Nawaf Alqurashi** — Data Analyst
+Portfolio: ⟨link⟩ · LinkedIn: ⟨link⟩ · GitHub: [@NawafAlqurashii](https://github.com/NawafAlqurashii)
+
+> Built during the Saudi Digital Academy × Le Wagon Data Science & AI Bootcamp, Riyadh.
