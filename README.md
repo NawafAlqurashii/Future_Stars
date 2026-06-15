@@ -10,7 +10,7 @@
 ![Docker](https://img.shields.io/badge/Container-Docker-2496ED)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
-🔗 **Live demo:** ⟨paste your Cloud Run / Streamlit URL here⟩
+### 🔗 [**▶ Try the live app: futurestars.streamlit.app**](https://futurestars.streamlit.app/)
 🖼️ **Screenshots:** see `outputs/` (confusion matrix, feature importance, threshold curve)
 
 > **TL;DR** — An early *same-season* version scored a suspicious **ROC-AUC ≈ 0.99**.
