@@ -32,7 +32,7 @@
 - [Using the app](#-using-the-app)
 - [Limitations](#-limitations)
 - [Future work](#-future-work)
-- [Tech stack](#-tech-stack) · [License](#-license) · [Author](#-author)
+- [Tech stack](#-tech-stack)  · [Author](#-author)
 
 ---
 
