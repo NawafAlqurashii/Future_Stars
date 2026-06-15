@@ -29,6 +29,7 @@
 - [Results](#-results)
 - [Project structure](#-project-structure)
 - [How to run](#-how-to-run)
+- [Using the app](#-using-the-app)
 - [Limitations](#-limitations)
 - [Future work](#-future-work)
 - [Tech stack](#-tech-stack) · [License](#-license) · [Author](#-author)
@@ -134,26 +135,60 @@ Future_Stars/
 
 ## ▶️ How to run
 
-### Local
+### Run locally
 ```bash
 git clone https://github.com/NawafAlqurashii/Future_Stars.git
 cd Future_Stars
 python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-
-# Train the temporal model (features = 2024-25, label = 2025-26)
+pip install -r requirements.txt
+ 
+# (optional) retrain the temporal model -> model/model.pkl
 python main.py --features-data data/players_data_light-2024_2025.csv \
                --label-data    data/players_data_light-2025_2026.csv
-
-# Serve the API
-uvicorn api.api:app --reload --port 8080
+ 
+# launch the web app (self-contained: loads the model directly)
+streamlit run app.py
 ```
-
-### Docker
+ 
+### REST API (optional)
+A FastAPI service is also included for programmatic scoring:
 ```bash
-docker build -t future-stars .
-docker run -p 8080:8080 future-stars
+uvicorn api.api:app --reload --port 8080   # POST /predict_one, /predict_file
 ```
+ 
+## 🕹️ Using the app
+ 
+The app ([futurestars.streamlit.app](https://futurestars.streamlit.app/)) has two modes:
+ 
+**1) Predict a single player** — fill in a player's season stats and get a
+**Future Star score (%)**. Tips for a meaningful score:
+- pick a real **position** (GK/DF/MF/FW),
+- enter **realistic minutes** (a full season is ~2,000–3,400, not tens of thousands),
+- open **"More stats"** (shots, key passes, progressive carries/runs) — the model
+  uses all of them, so filling them gives a far more accurate score.
+**2) Upload a squad (CSV)** — score a whole league at once, then explore the
+**Analysis Dashboard** (filters, KPIs, rankings, charts).
+ 
+### What CSV to upload
+One row per player, using **FBref** column names. The easiest source is an FBref
+top-5-leagues per-90 export — the **same format as the included
+`data/players_data_light-2024_2025.csv`**, which you can upload directly to try it.
+Missing columns are handled automatically (filled and imputed), but more complete
+data gives more accurate scores. Key columns the model reads:
+ 
+| Column | Meaning |
+|--------|---------|
+| `Player`, `Pos`, `Age`, `Min` | name, position (e.g. `FW,MF`), age, minutes |
+| `G+A`, `xG`, `xAG` | goals+assists, expected goals, expected assisted goals |
+| `Sh/90`, `SoT/90` | shots / shots on target per 90 |
+| `KP`, `PrgP`, `PrgC`, `PrgR` | key passes, progressive passes / carries / runs |
+| `Tkl`, `Blocks_stats_defense`, `Clr` | tackles, blocks, clearances |
+| `Save%` | goalkeeper save percentage |
+ 
+### What you get back
+For each player the app builds per-90 features (and `Role` from position), runs the
+XGBoost temporal model, and returns: **Prediction** (Future Star / Not),
+**Probability (%)** (the score), and a position-relevant **Key Metric**.
 
 ## ⚠️ Limitations
 - **2025-26 is a partial export** (no xG / defensive detail), so the next-season
