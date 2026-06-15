@@ -1,0 +1,26 @@
+name: Keep Streamlit app awake
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"      # every 6 hours (well under the 12h sleep limit)
+  workflow_dispatch:            # lets you run it manually too
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Selenium
+        run: pip install selenium
+
+      - name: Visit and wake the app
+        env:
+          APP_URL: "https://futurestars.streamlit.app/"
+        run: python keep_awake.py
