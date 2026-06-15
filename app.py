@@ -103,9 +103,44 @@ div.stButton > button:hover { background: linear-gradient(90deg, #17a74a, #1db95
 </style>
 """, unsafe_allow_html=True)
 
-API_URL = "http://localhost:8080"
+# ---- Self-contained: load the model and predict directly (no separate API needed) ----
+import sys
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT))
+from future_stars.predict import predict
+
+MODEL_PATH = str(ROOT / "model" / "model.pkl")
+
+
+def score_players(df: pd.DataFrame) -> pd.DataFrame:
+    res = predict(data=df, model_path=MODEL_PATH)
+    if "Probability" in res.columns:
+        res["Probability"] = pd.to_numeric(
+            res["Probability"].astype(str).str.replace("%", "", regex=False), errors="coerce")
+    return res
+
+
+def player_row(name, nat, age, pos, minutes, ga, xg, xag, tkl, blocks, clr,
+               prgp, kp, prgc, prgr, shots, sot, savep) -> pd.DataFrame:
+    minutes = max(float(minutes), 1.0)
+    n90 = minutes / 90.0
+    return pd.DataFrame([{
+        "Player": name, "Nation": nat or "NA", "Age": age, "Pos": pos,
+        "Min": minutes, "90s": n90, "G+A": ga, "xG": xg, "xAG": xag,
+        "Tkl": tkl, "Blocks_stats_defense": blocks, "Clr": clr,
+        "PrgP": prgp, "KP": kp, "PrgC": prgc, "PrgR": prgr,
+        "Sh/90": shots / n90 if n90 else 0.0, "SoT/90": sot / n90 if n90 else 0.0,
+        "Save%": savep,
+    }])
+
+
 earthy_colors = {"light": "#CAD2C5", "green": "#84A98C", "teal": "#52796F",
                  "deep": "#354F52", "dark": "#2F3E46"}
+
+if not (ROOT / "model" / "model.pkl").exists():
+    st.error("Model not found at model/model.pkl. Train it first (python main.py) and include it in the repo.")
+    st.stop()
 
 # Navigation
 page = st.sidebar.radio("Navigation", ["Predict Player", "Analysis Dashboard"])
@@ -175,27 +210,16 @@ if page == "Predict Player":
             submitted = st.form_submit_button("Predict")
 
     if submitted:
-        payload = {
-            "player_name": player_name, "position": pos, "nationality": nationality,
-            "age": age, "minutes_played": minutes, "goals_assists": ga,
-            "expected_goals": xg, "expected_assists": xag, "tackles": tackles,
-            "blocks": blocks, "clearances": clearances, "progressive_passes": prog_pass,
-            "key_passes": key_passes, "progressive_carries": prog_carries,
-            "progressive_runs": prog_runs, "shots": shots, "shots_on_target": shots_on_target,
-            "save_percent": save_pct,
-        }
-        with st.spinner("Contacting Future Stars API..."):
-            response = requests.post(f"{API_URL}/predict_one", json=payload, timeout=60)
-        if response.status_code == 200:
-            st.success("Prediction Complete")
-            df_result = pd.DataFrame([response.json()])
-            if "Probability" in df_result.columns:
-                df_result["Probability"] = pd.to_numeric(
-                    df_result["Probability"].astype(str).str.replace("%", "", regex=False),
-                    errors="coerce")
-            st.write(df_result)
-        else:
-            st.error(f"API Error {response.status_code}: {response.text}")
+        with st.spinner("Scoring..."):
+            try:
+                df_result = score_players(player_row(
+                    player_name, nationality, age, pos, minutes, ga, xg, xag,
+                    tackles, blocks, clearances, prog_pass, key_passes,
+                    prog_carries, prog_runs, shots, shots_on_target, save_pct))
+                st.success("Prediction Complete")
+                st.write(df_result)
+            except Exception as e:
+                st.error(f"Prediction failed: {e}")
 
     # ---------------- CSV Upload ----------------
     st.subheader("Or upload a CSV file for multiple players")
@@ -204,31 +228,23 @@ if page == "Predict Player":
     if uploaded_file is not None:
         st.success("File uploaded successfully!")
         if st.button("Show Analysis"):
-            files = {"file": ("players.csv", uploaded_file.getvalue(), "text/csv")}
             with st.spinner("Processing..."):
-                r = requests.post(f"{API_URL}/predict_file", files=files, timeout=120)
-            if r.status_code == 200:
-                df_pred = pd.DataFrame(r.json())
-                if "Probability" in df_pred.columns:
-                    df_pred["Probability"] = pd.to_numeric(
-                        df_pred["Probability"].astype(str).str.replace("%", "", regex=False),
-                        errors="coerce")
-                elif "probability" in df_pred.columns:
-                    df_pred["Probability"] = (df_pred["probability"].astype(float) * 100).round(2)
-                if "prediction" in df_pred.columns:
-                    df_pred["Prediction"] = df_pred["prediction"]
+                try:
+                    raw = pd.read_csv(uploaded_file)
+                    df_pred = score_players(raw)
+                except Exception as e:
+                    st.error(f"Could not analyze this file: {e}")
+                    df_pred = None
+            if df_pred is not None:
                 st.session_state["analysis_df"] = df_pred
                 st.success(f"Predictions ready for {len(df_pred)} players! "
                            f"Full table below — or open the Analysis Dashboard for charts.")
-                # show ALL uploaded players with their columns, sorted by probability
                 show = df_pred.copy()
                 if "Probability" in show.columns:
                     show = show.sort_values("Probability", ascending=False)
                 st.dataframe(show, use_container_width=True, hide_index=True)
                 st.download_button("Download results (CSV)",
                                    show.to_csv(index=False), "future_star_scores.csv", "text/csv")
-            else:
-                st.error(f"API Error {r.status_code}: {r.text}")
 
 
 # ============================ Page 2: Analysis Dashboard ============================
