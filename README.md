@@ -1,4 +1,4 @@
-# ⚽ Future Star — Football Talent Prediction
+# ⚽ Future Star — Football Talent Prediction Platform
 
 > Predict whether a **young footballer** will become a **top performer in their
 > position next season** — to help Saudi academies scout objectively, aligned
