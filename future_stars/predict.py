@@ -68,7 +68,7 @@ def predict(data=None, data_path=None, model_path="model/model.pkl", save_path=N
 
     results = df.copy()
     results["Prediction"] = pd.Series(preds, index=results.index).map({1: "Future Star", 0: "Not Future Star"})
-    results["Probability"] = (proba * 100).round(2).astype(str) + "%"
+    results["Probability"] = [f"{p * 100:.2f}%" for p in proba]
     results["Key Metric"] = results.apply(get_key_metric, axis=1)
 
     cols = [c for c in ["Player", "Age", "Pos", "Role", "Prediction", "Probability", "Key Metric"]
